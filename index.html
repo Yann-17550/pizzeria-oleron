@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Pizzeria Dolus d'Oléron 🍕</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
+    body{background:linear-gradient(135deg,#ff6b35,#f7931e);min-height:100vh;padding:20px}
+    .container{max-width:500px;margin:0 auto}
+    .card{background:#fff;border-radius:20px;padding:25px;margin:15px 0;box-shadow:0 20px 40px rgba(0,0,0,.15)}
+    .btn{background:#ff6b35;color:#fff;border:0;padding:15px;border-radius:12px;font-size:16px;cursor:pointer;width:100%;margin:10px 0;transition:.3s}
+    .btn:hover{transform:translateY(-2px);background:#e55a2b}
+    .btn-secondary{background:#6c757d}
+    .produit{display:flex;align-items:center;padding:20px;border:2px solid #eee;border-radius:15px;margin:10px 0;cursor:pointer;transition:.3s}
+    .produit:hover{box-shadow:0 10px 25px rgba(0,0,0,.1);border-color:#ff6b35}
+    .pizza-emoji{background:#ff6b35;color:#fff;width:70px;height:70px;border-radius:15px;margin-right:20px;display:grid;place-items:center;font-size:24px}
+    .prix{font-size:22px;font-weight:bold;color:#ff6b35}
+    .panier-item{display:flex;justify-content:space-between;padding:15px;background:#f8f9fa;border-radius:10px;margin:10px 0}
+    .slot{padding:15px;margin:10px;background:#28a745;color:#fff;border-radius:12px;text-align:center;font-weight:bold;cursor:pointer}
+    .loader{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.9);color:#fff;display:flex;align-items:center;justify-content:center;z-index:999;font-size:18px}
+    @media(max-width:480px){.container{padding:10px}.produit{flex-direction:column;text-align:center}}
+  </style>
+</head>
+<body>
+  <div id="loader" class="loader">🍕 Pizzeria Dolus d'Oléron<br><small>Chargement menu...</small></div>
+  
+  <div class="container">
+    <div class="card">
+      <h1 style="text-align:center;color:#ff6b35;margin-bottom:20px">🍕 Commandez !</h1>
+      <input id="nom" placeholder="👤 Nom" class="btn" style="background:#fff;color:#333;border:2px solid #ddd;font-size:16px">
+      <input id="tel" placeholder="📱 Téléphone" class="btn" style="background:#fff;color:#333;border:2px solid #ddd;font-size:16px">
+      <button class="btn" onclick="loadMenu()">Voir le Menu</button>
+    </div>
+
+    <div id="menu" class="card" style="display:none">
+      <h2>Menu du Jour</h2>
+      <div id="pizzas"></div>
+      <button class="btn" onclick="showPanier()">🛒 Panier (<span id="totalMini">0</span>€)</button>
+    </div>
+
+    <div id="panier" class="card" style="display:none">
+      <h2>🛒 Panier</h2>
+      <div id="items"></div>
+      <div style="font-size:28px;text-align:center;color:#ff6b35;margin:20px 0">
+        Total: <span id="total">0€</span>
+      </div>
+      <button class="btn" onclick="reserver()">Réserver Table</button>
+    </div>
+
+    <div id="confirm" class="card" style="display:none">
+      <h2>✅ Confirmation</h2>
+      <div id="details"></div>
+      <div id="slot"></div>
+      <div style="font-size:24px;text-align:center;color:#28a745;margin:20px 0;font-weight:bold">
+        Code: <span id="code"></span>
+      </div>
+      <button class="btn" onclick="ok()">OK !</button>
+    </div>
+  </div>
+
+  <script>
+    // VOS PIZZAS EXACTES
+    const PIZZAS = [
+      {nom:'Prosciutto', prix:11, desc:'Sauce Tomate, Jambon Blanc Italien, Fior Di Latte'},
+      {nom:'Reine', prix:12, desc:'Sauce tomate, Jambon Blanc, Champignons'},
+      {nom:'Cabri', prix:13, desc:'Crème, Chèvre, Noix, Miel, Salade'},
+      {nom:'Doussette', prix:13, desc:'Crème, Jambon, Champignons, Chèvre'},
+      {nom:'Végétarienne', prix:13, desc:'Champignons, Tomates, Artichauts'},
+      {nom:'Orientale', prix:13, desc:'Merguez, Olives, Épices'},
+      {nom:'Catalane', prix:13, desc:'Chorizo, Poivrons, Oignons'}
+    ];
+
+    let panier = [];
+
+    function hideLoader(){document.getElementById('loader').style.display='none'}
+
+    function loadMenu(){
+      hideLoader();
+      let html = '';
+      PIZZAS.forEach((p,i)=>{
+        html += `<div class="produit" onclick="add(${i})">
+          <div class="pizza-emoji">🍕</div>
+          <div>
+            <h3>${p.nom}</h3>
+            <p>${p.desc}</p>
+            <div class="prix">${p.prix}€</div>
+          </div>
+        </div>`;
+      });
+      document.getElementById('pizzas').innerHTML = html;
+      document.getElementById('menu').style.display = 'block';
+      document.getElementById('menu').scrollIntoView();
+    }
+
+    function add(i){
+      const p = PIZZAS[i];
+      const existant = panier.find(item=>item.nom===p.nom);
+      if(existant) existant.qte++;
+      else panier.push({nom:p.nom, prix:p.prix, qte:1});
+      updatePanierMini();
+    }
+
+    function updatePanierMini(){
+      let total = panier.reduce((s,item)=>s+item.prix*item.qte,0);
+      document.getElementById('totalMini').textContent = total.toFixed(1);
+    }
+
+    function showPanier(){
+      document.getElementById('menu').style.display = 'none';
+      document.getElementById('panier').style.display = 'block';
+      let html = '', total = 0;
+      panier.forEach(item=>{
+        const ligne = item.prix*item.qte;
+        total += ligne;
+        html += `<div class="panier-item">
+          ${item.nom} ×${item.qte}
+          <span>${ligne.toFixed(1)}€</span>
+        </div>`;
+      });
+      document.getElementById('items').innerHTML = html;
+      document.getElementById('total').textContent = total.toFixed(1);
+      document.getElementById('panier').scrollIntoView();
+    }
+
+    function reserver(){
+      const nom = document.getElementById('nom').value;
+      const tel = document.getElementById('tel').value;
+      if(!nom || !tel) return alert('Nom + Tel requis !');
+      if(panier.length===0) return alert('Panier vide !');
+
+      document.getElementById('panier').style.display = 'none';
+      document.getElementById('confirm').style.display = 'block';
+
+      const total = panier.reduce((s,item)=>s+item.prix*item.qte,0);
+      const code = 'CDE-'+Math.random().toString(36).substr(2,4).toUpperCase();
+      const heure = new Date(Date.now() + 20*60*1000).toLocaleTimeString('fr-FR');
+
+      document.getElementById('details').innerHTML = `
+        <p><strong>${nom}</strong><br>${tel}</p>
+        <p>${panier.map(p=>p.nom+'×'+p.qte).join(', ')}</p>
+        <p><strong>${total.toFixed(1)}€</strong></p>
+      `;
+      document.getElementById('slot').innerHTML = `<div class="slot">Prête vers ${heure}</div>`;
+      document.getElementById('code').textContent = code;
+      
+      // SAUVEGARDE locale (Sheets après)
+      localStorage.setItem('commande_'+code, JSON.stringify({nom,tel,panier,total,heure,code,timestamp:new Date()}));
+      
+      document.getElementById('confirm').scrollIntoView();
+    }
+
+    function ok(){
+      alert('✅ Commande enregistrée ! Montrez le CODE au comptoir.\n\nTasker SMS envoyé.');
+      location.reload();
+    }
+
+    // Auto-focus
+    window.onload = () => {
+      setTimeout(hideLoader, 1000);
+      document.getElementById('nom').focus();
+    }
+  </script>
+</body>
+</html>
